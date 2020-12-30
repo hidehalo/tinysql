@@ -42,6 +42,7 @@ const (
 	// RecordRowKeyLen is public for calculating average row size.
 	RecordRowKeyLen       = prefixLen + idLen /*handle*/
 	tablePrefixLength     = 1
+	indexPrefixSepLength  = 2
 	recordPrefixSepLength = 2
 )
 
@@ -71,14 +72,22 @@ func EncodeRowKeyWithHandle(tableID int64, handle int64) kv.Key {
 
 // DecodeRecordKey decodes the key and gets the tableID, handle.
 func DecodeRecordKey(key kv.Key) (tableID int64, handle int64, err error) {
-	/* Your code here */
-	if len(key) != RecordRowKeyLen {
-		err = errors.Errorf("Wrong key %s", key.String())
+	/* DONE: Your code here */
+	originKey := make([]byte, len(key))
+	copy(originKey, key)
+	if !key.HasPrefix(tablePrefix) {
+		err = errInvalidKey.GenWithStack("invalid key wrong table prefix - %s", originKey)
+		return
 	}
-	_, tableID, err = codec.DecodeInt(key[tablePrefixLength : tablePrefixLength+idLen])
-	if err == nil {
-		_, handle, err = codec.DecodeInt(key[tablePrefixLength+idLen+recordPrefixSepLength : tablePrefixLength+idLen+recordPrefixSepLength+idLen])
+	key, tableID, err = codec.DecodeInt(key[tablePrefixLength:])
+	if err != nil {
+		return
 	}
+	if !key.HasPrefix(recordPrefixSep) {
+		err = errInvalidKey.GenWithStack("invalid key wrong record prefix - %s", originKey)
+		return
+	}
+	_, handle, err = codec.DecodeInt(key[recordPrefixSepLength:])
 	return
 }
 
@@ -101,7 +110,25 @@ func EncodeIndexSeekKey(tableID int64, idxID int64, encodedValue []byte) kv.Key 
 
 // DecodeIndexKeyPrefix decodes the key and gets the tableID, indexID, indexValues.
 func DecodeIndexKeyPrefix(key kv.Key) (tableID int64, indexID int64, indexValues []byte, err error) {
-	/* Your code here */
+	/* DONE Your code here */
+	originKey := make([]byte, len(key))
+	copy(originKey, key)
+	if !key.HasPrefix(tablePrefix) {
+		err = errInvalidKey.GenWithStack("invalid key wrong table prefix - %s", originKey)
+		return
+	}
+	key, tableID, err = codec.DecodeInt(key[tablePrefixLength:])
+	if err != nil {
+		return
+	}
+	if !key.HasPrefix(indexPrefixSep) {
+		err = errInvalidKey.GenWithStack("invalid key wrong index prefix - %s", originKey)
+		return
+	}
+	indexValues, indexID, err = codec.DecodeInt(key[indexPrefixSepLength:])
+	if err != nil {
+		return
+	}
 	return tableID, indexID, indexValues, nil
 }
 
