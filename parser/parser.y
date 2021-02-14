@@ -3809,7 +3809,17 @@ JoinTable:
 	{
 		$$ = &ast.Join{Left: $1.(ast.ResultSetNode), Right: $3.(ast.ResultSetNode), Tp: ast.CrossJoin}
 	}
-	/* Your code here. */
+|
+	/* Outer join */
+	TableRef JoinType OuterOpt TableRef %prec tableRefPriority
+	{
+		joinTp := $2.(ast.JoinType)
+		if joinTp == ast.LeftJoin {
+			$$ = &ast.Join{Left: $4.(ast.ResultSetNode), Right: $1.(ast.ResultSetNode), Tp: joinTp}
+		} else {
+			$$ = &ast.Join{Left: $1.(ast.ResultSetNode), Right: $4.(ast.ResultSetNode), Tp: joinTp}
+		}
+	}
 
 JoinType:
 	"LEFT"
