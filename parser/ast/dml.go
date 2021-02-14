@@ -52,6 +52,28 @@ const (
 	RightJoin
 )
 
+// OnCondition represents JOIN on condition.
+type OnCondition struct {
+	node
+
+	Expr ExprNode
+}
+
+// Accept implements Node Accept interface.
+func (n *OnCondition) Accept(v Visitor) (Node, bool) {
+	newNode, skipChildren := v.Enter(n)
+	if skipChildren {
+		return v.Leave(newNode)
+	}
+	n = newNode.(*OnCondition)
+	node, ok := n.Expr.Accept(v)
+	if !ok {
+		return n, false
+	}
+	n.Expr = node.(ExprNode)
+	return v.Leave(n)
+}
+
 // Join represents table join.
 type Join struct {
 	node
@@ -64,6 +86,8 @@ type Join struct {
 	Tp JoinType
 	// On represents join on condition.
 	On *OnCondition
+	// Using represents join using column list
+	Using []*ColumnName
 }
 
 // Accept implements Node Accept interface.
@@ -144,28 +168,6 @@ func (n *TableName) Accept(v Visitor) (Node, bool) {
 		return v.Leave(newNode)
 	}
 	n = newNode.(*TableName)
-	return v.Leave(n)
-}
-
-// OnCondition represents JOIN on condition.
-type OnCondition struct {
-	node
-
-	Expr ExprNode
-}
-
-// Accept implements Node Accept interface.
-func (n *OnCondition) Accept(v Visitor) (Node, bool) {
-	newNode, skipChildren := v.Enter(n)
-	if skipChildren {
-		return v.Leave(newNode)
-	}
-	n = newNode.(*OnCondition)
-	node, ok := n.Expr.Accept(v)
-	if !ok {
-		return n, false
-	}
-	n.Expr = node.(ExprNode)
 	return v.Leave(n)
 }
 

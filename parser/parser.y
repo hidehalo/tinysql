@@ -1015,7 +1015,7 @@ import (
 %right	encryption
 
 %left labels
-%precedence '('
+%precedence '(' ')'
 %precedence quick
 %precedence escape
 %precedence lowerThanComma
@@ -3809,16 +3809,45 @@ JoinTable:
 	{
 		$$ = &ast.Join{Left: $1.(ast.ResultSetNode), Right: $3.(ast.ResultSetNode), Tp: ast.CrossJoin}
 	}
-|
-	/* Outer join */
-	TableRef JoinType OuterOpt TableRef %prec tableRefPriority
+|	TableRef CrossOpt TableRef "ON" Expression
 	{
-		joinTp := $2.(ast.JoinType)
-		if joinTp == ast.LeftJoin {
-			$$ = &ast.Join{Left: $4.(ast.ResultSetNode), Right: $1.(ast.ResultSetNode), Tp: joinTp}
-		} else {
-			$$ = &ast.Join{Left: $1.(ast.ResultSetNode), Right: $4.(ast.ResultSetNode), Tp: joinTp}
-		}
+		on := &ast.OnCondition{Expr: $5}
+		$$ = &ast.Join{Left: $1.(ast.ResultSetNode), Right: $3.(ast.ResultSetNode), Tp: ast.CrossJoin, On: on}
+	}
+|	TableRef CrossOpt TableRef "USING" '(' ColumnNameList ')'
+	{
+		using := $6.([]*ast.ColumnName)
+		$$ = &ast.Join{Left: $1.(ast.ResultSetNode), Right: $3.(ast.ResultSetNode), Tp: ast.CrossJoin, Using: using}
+	}
+	/* STRAIGHT_JOIN */
+|	TableRef "STRAIGHT_JOIN" TableRef
+	{
+		$$ = &ast.Join{Left: $1.(ast.ResultSetNode), Right: $3.(ast.ResultSetNode)}
+	}
+|	TableRef "STRAIGHT_JOIN" TableRef "ON" Expression
+	{
+		on := &ast.OnCondition{Expr: $5}
+		$$ = &ast.Join{Left: $1.(ast.ResultSetNode), Right: $3.(ast.ResultSetNode), On: on}
+	}
+	/* Outer join */
+|	TableRef JoinType OuterOpt "JOIN" TableRef "ON" Expression
+	{
+		on :=  &ast.OnCondition{Expr: $7}
+		$$ = &ast.Join{Left: $1.(ast.ResultSetNode), Right: $5.(ast.ResultSetNode), Tp: $2.(ast.JoinType), On: on}
+	}
+|	TableRef JoinType OuterOpt "JOIN" TableRef "USING" '(' ColumnNameList ')'
+	{
+		using := $8.([]*ast.ColumnName)
+		$$ = &ast.Join{Left: $1.(ast.ResultSetNode), Right: $5.(ast.ResultSetNode), Tp: $2.(ast.JoinType), Using: using}
+	}
+	/* Natural join */
+|	TableRef "NATURAL" "JOIN" TableRef
+	{
+		$$ = &ast.Join{Left: $1.(ast.ResultSetNode), Right: $4.(ast.ResultSetNode)}
+	}
+|	TableRef "NATURAL" JoinType OuterOpt "JOIN" TableRef
+	{
+		$$ = &ast.Join{Left: $1.(ast.ResultSetNode), Right: $6.(ast.ResultSetNode), Tp: $3.(ast.JoinType)}
 	}
 
 JoinType:
@@ -3838,7 +3867,7 @@ OuterOpt:
 CrossOpt:
 	"JOIN"
 |	"INNER" "JOIN"
-
+|	"CROSS" "JOIN"
 
 LimitClause:
 	{
